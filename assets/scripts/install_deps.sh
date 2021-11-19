@@ -19,29 +19,35 @@ IOTPOLICYNAME="JetBotPolicy"
 
 PROJECTNAME=$1
 ROBOMAKERFILE="../../roboMakerSettings.json"
-AWSCREDSFILE="../teleop/awscreds.js"
+AWSCREDSFILE="../teleop/aws-iot.js"
+TELEOP1FILE="../../robot_ws/src/jetbot_app/nodes/teleop.py"
+TELEOP2FILE="../../simulation_ws/src/jetbot_sim_app/nodes/teleop.py"
+
+
+
+
 
 #Add cloudformation outputs as variables to use in the rest of this script
-CF=$(\
-aws cloudformation describe-stacks \
---stack-name $PROJECTNAME \
---query 'Stacks[].Outputs[?OutputKey==`SubmitJobSH`].[OutputValue]' \
---output text
-)
-if [ $? -eq 0 ]
-then
-        echo "Cloud formation stack $PROJECTNAME found"
-else
-        echo "Cloud formation stack $PROJECTNAME not found - exiting"
-        exit 
-fi
-for key in $CF
-do
-        echo $key >> addrobomakerresources.sh
-done
-
-source addrobomakerresources.sh
-rm addrobomakerresources.sh
+# CF=$(\
+# aws cloudformation describe-stacks \
+# --stack-name $PROJECTNAME \
+# --query 'Stacks[].Outputs[?OutputKey==`SubmitJobSH`].[OutputValue]' \
+# --output text
+# )
+# if [ $? -eq 0 ]
+# then
+#         echo "Cloud formation stack $PROJECTNAME found"
+# else
+#         echo "Cloud formation stack $PROJECTNAME not found - exiting"
+#         exit
+# fi
+# for key in $CF
+# do
+#         echo $key >> addrobomakerresources.sh
+# done
+#
+# source addrobomakerresources.sh
+# rm addrobomakerresources.sh
 
 #Get IoT Endpoint to update the robomakersettings.json and awscreds.js files
 IOTENDPOINT=$(\
@@ -51,24 +57,36 @@ aws iot describe-endpoint \
 --output text
 )
 
-#Update roboMakerSettings file
-echo "Updating roboMakerSettings.json ..."
-sed -i "s/<Update S3 Bucketname Here>/$BUCKET_NAME/g" $ROBOMAKERFILE
-sed -i "s|<Update IAM Role ARN Here>|$ARN_SIM_ROLE|g" $ROBOMAKERFILE
-sed -i "s/<Update IoT Endpoint Here>/$IOTENDPOINT/g" $ROBOMAKERFILE
-sed -i "s/<Update Public Subnet 1 Here>/$SUBNET1/g" $ROBOMAKERFILE
-sed -i "s/<Update Public Subnet 2 Here>/$SUBNET2/g" $ROBOMAKERFILE
-sed -i "s/<Update Security Group Here>/$SECURITY_GROUP/g" $ROBOMAKERFILE
-cp $ROBOMAKERFILE /home/ubuntu/environment
+# #Update roboMakerSettings file
+# echo "Updating roboMakerSettings.json ..."
+# sed -i "s/<Update S3 Bucketname Here>/$BUCKET_NAME/g" $ROBOMAKERFILE
+# sed -i "s|<Update IAM Role ARN Here>|$ARN_SIM_ROLE|g" $ROBOMAKERFILE
+# sed -i "s/<Update IoT Endpoint Here>/$IOTENDPOINT/g" $ROBOMAKERFILE
+# sed -i "s/<Update Public Subnet 1 Here>/$SUBNET1/g" $ROBOMAKERFILE
+# sed -i "s/<Update Public Subnet 2 Here>/$SUBNET2/g" $ROBOMAKERFILE
+# sed -i "s/<Update Security Group Here>/$SECURITY_GROUP/g" $ROBOMAKERFILE
+# cp $ROBOMAKERFILE /home/ubuntu/environment
 
-#Update awscreds.js
-echo "Updating awscreds.js ..."
+#Update aws-iot.js
+echo "Updating aws-iot.js ..."
 AWSREGION=$(aws configure get region)
 sed -i "s/<Update IoT Endpoint Here>/$IOTENDPOINT/g" $AWSCREDSFILE
 sed -i "s/<Update Region Here>/$AWSREGION/g" $AWSCREDSFILE
-sed -i "s/<Update Access Key ID Here>/$ACCESSKEYID/g" $AWSCREDSFILE
-sed -i "s|<Update Secret Access Key Here>|$SECRETACCESSKEY|" $AWSCREDSFILE
 zip ../teleop/teleop.zip ../teleop/*
+#robot_ws/src/jetbot_app/nodes/teleop.py
+#simulation_ws/src/jetbot_sim_app/nodes/teleop.py
+#/Users/schauflc/Documents/Robo4Kids/aws_robomaker_jetbot_reinvent_workshop/assets/teleop/aws-exports.js
+#assets/teleop/aws-iot.js
+
+#Update TELEOP.js
+echo "Updating teleop.py ..."
+AWSREGION=$(aws configure get region)
+sed -i "s/<Update IoT Endpoint Here>/$IOTENDPOINT/g" $TELEOP1FILE
+sed -i "s/<Update IoT Endpoint Here>/$IOTENDPOINT/g" $TELEOP2FILE
+
+
+
+
 
 #Create IoT Policy
 aws iot create-policy \
@@ -101,7 +119,7 @@ aws iot create-keys-and-certificate --set-as-active \
 
 wget -O $SIM_CERTS_FOLDER/root.ca.pem https://www.amazontrust.com/repository/AmazonRootCA1.pem
 
-chmod 755 $SIM_CERTS_FOLDER/* 
+chmod 755 $SIM_CERTS_FOLDER/*
 chmod 755 $ROBOT_CERTS_FOLDER/*
 
 #attach policy to the certificates
@@ -116,7 +134,7 @@ aws iot attach-policy \
 
 #Add ROS dependencies
 echo "Updating ROS dependencies ..."
-cp -a deps/* /etc/ros/rosdep/sources.list.d/ 
+cp -a deps/* /etc/ros/rosdep/sources.list.d/
 echo "yaml file:///$WORK_DIR/jetbot.yaml" > /etc/ros/rosdep/sources.list.d/21-customdepenencies.list
 sudo -u ubuntu rosdep update
 

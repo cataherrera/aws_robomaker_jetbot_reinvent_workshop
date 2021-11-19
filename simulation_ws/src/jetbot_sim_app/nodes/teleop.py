@@ -26,7 +26,7 @@ CERTIFICATEFILE = 'certificate.pem.crt'
 #ClientID and Topics should be unique for all MQTT connections
 TOPIC = 'joystick1'
 CLIENTID = 'jetbot_sim_app1'
-ENDPOINT = os.environ['IOT_ENDPOINT'].lower()
+ENDPOINT = <Update IoT Endpoint Here>.lower()
 #ROS Settings, for example application name
 ROSAPP = 'jetbot_sim_app'
 
