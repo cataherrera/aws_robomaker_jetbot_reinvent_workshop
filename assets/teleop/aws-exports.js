@@ -3,7 +3,7 @@
 
 const awsmobile = {
     "aws_project_region": "<Update Region Here>",
-    "aws_cognito_identity_pool_id": "",
+    "aws_cognito_identity_pool_id": "<Update PoolId Here>",
     "aws_cognito_region": "<Update Region Here>",
     "oauth": {}
 };

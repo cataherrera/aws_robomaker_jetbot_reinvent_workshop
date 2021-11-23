@@ -20,6 +20,7 @@ IOTPOLICYNAME="JetBotPolicy"
 PROJECTNAME=$1
 ROBOMAKERFILE="../../roboMakerSettings.json"
 AWSCREDSFILE="../teleop/aws-iot.js"
+AWSIOTSFILE="../teleop/aws-exports.js"
 TELEOP1FILE="../../robot_ws/src/jetbot_app/nodes/teleop.py"
 TELEOP2FILE="../../simulation_ws/src/jetbot_sim_app/nodes/teleop.py"
 
@@ -67,16 +68,59 @@ aws iot describe-endpoint \
 # sed -i "s/<Update Security Group Here>/$SECURITY_GROUP/g" $ROBOMAKERFILE
 # cp $ROBOMAKERFILE /home/ubuntu/environment
 
+#Create Identity aws_cognito_identity_pool_id
+
+IDENTITYPOOLID=$(\
+aws cognito-identity create-identity-pool\
+--identity-pool-name "robo4kidsIdentityPool" \
+--allow-unauthenticated-identities false\
+--query "[IdentityPoolId]"\
+--output text
+)
+
+#Get Idendity pool unauth role
+
+UNAUTHROLE=$(\
+aws cognito-identity get-identity-pool-roles\
+--identity-pool-id "$IDENTITYPOOLID"\
+--query "Roles.unauthenticated"\
+--output text
+)
+
+
+# add policy to role
+
+aws iam attach-role-policy \
+--role-name "${UNAUTHROLE#*/}" \
+--policy-arn "arn:aws:iam::aws:policy/AWSIoTConfigAccess"
+
+aws iam attach-role-policy \
+--role-name "${UNAUTHROLE#*/}" \
+--policy-arn "arn:aws:iam::aws:policy/AWSIoTDataAccess"
+
+
+SIM_CERTARN=$(\
+aws iot create-keys-and-certificate --set-as-active \
+--certificate-pem-outfile "$SIM_CERTS_FOLDER/certificate.pem.crt" \
+--private-key-outfile  "$SIM_CERTS_FOLDER/private.pem.key" \
+--public-key-outfile  "$SIM_CERTS_FOLDER/public.pem.key" \
+--query "[certificateArn]" \
+--output text
+)
+
+#Update aws-exports.js
+echo "Updating aws-iot.js ..."
+AWSREGION=$(aws configure get region)
+sed -i "s/<Update PoolId Here>/$IDENTITYPOOLID/g" $AWSCREDSFILE
+sed -i "s/<Update Region Here>/$AWSREGION/g" $AWSCREDSFILE
+
+
 #Update aws-iot.js
 echo "Updating aws-iot.js ..."
 AWSREGION=$(aws configure get region)
-sed -i "s/<Update IoT Endpoint Here>/$IOTENDPOINT/g" $AWSCREDSFILE
-sed -i "s/<Update Region Here>/$AWSREGION/g" $AWSCREDSFILE
-zip ../teleop/teleop.zip ../teleop/*
-#robot_ws/src/jetbot_app/nodes/teleop.py
-#simulation_ws/src/jetbot_sim_app/nodes/teleop.py
-#/Users/schauflc/Documents/Robo4Kids/aws_robomaker_jetbot_reinvent_workshop/assets/teleop/aws-exports.js
-#assets/teleop/aws-iot.js
+sed -i "s/<Update IoT Endpoint Here>/$IOTENDPOINT/g" $AWSIOTSFILE
+sed -i "s/<Update Region Here>/$AWSREGION/g" $AWSIOTSFILE
+
 
 #Update TELEOP.js
 echo "Updating teleop.py ..."
@@ -87,11 +131,13 @@ sed -i "s/<Update IoT Endpoint Here>/$IOTENDPOINT/g" $TELEOP2FILE
 
 
 
-
 #Create IoT Policy
 aws iot create-policy \
 --policy-name $IOTPOLICYNAME \
 --policy-document $IOTPOLICY
+
+
+
 
 #Create IoT Certificates
 #Create two certs for robot_ws and simulation_ws
