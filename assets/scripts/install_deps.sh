@@ -51,6 +51,10 @@ TELEOP2FILE="../../simulation_ws/src/jetbot_sim_app/nodes/teleop.py"
 # rm addrobomakerresources.sh
 
 #Get IoT Endpoint to update the robomakersettings.json and awscreds.js files
+
+
+echo "Get Iot Endpoint ..."
+
 IOTENDPOINT=$(\
 aws iot describe-endpoint \
 --endpoint-type iot:Data-ATS \
@@ -70,33 +74,86 @@ aws iot describe-endpoint \
 
 #Create Identity aws_cognito_identity_pool_id
 
+echo "Create IdentityPool.."
+
+
 IDENTITYPOOLID=$(\
-aws cognito-identity create-identity-pool\
+aws cognito-identity create-identity-pool \
 --identity-pool-name "robo4kidsIdentityPool" \
---allow-unauthenticated-identities false\
---query "[IdentityPoolId]"\
+--allow-unauthenticated-identities \
+--query "[IdentityPoolId]" \
 --output text
 )
+
+
+echo "Identity Pool ID $IDENTITYPOOLID"
+
+
 
 #Get Idendity pool unauth role
 
-UNAUTHROLE=$(\
-aws cognito-identity get-identity-pool-roles\
---identity-pool-id "$IDENTITYPOOLID"\
---query "Roles.unauthenticated"\
+# echo "Get UnAuth Role of IdentityPool .."
+
+
+# UNAUTHROLE=$(\
+# aws cognito-identity get-identity-pool-roles \
+# --identity-pool-id "$IDENTITYPOOLID" \
+# --query "Roles.unauthenticated" \
+# --output text
+# )
+
+# echo "UnauthRol arn $UNAUTHROLE"
+
+UNAUTHROLENAME="unauthrol-robo4kids"
+
+
+UNAUTHROLEARN=$(\
+aws iam create-role \
+--role-name "$UNAUTHROLENAME" \
+--assume-role-policy-document \
+'{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "cognito-identity.amazonaws.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "cognito-identity.amazonaws.com:aud": "us-east-2:899362e4-26a3-4edb-afd5-fe8bb9980ffa"
+        },
+        "ForAnyValue:StringLike": {
+          "cognito-identity.amazonaws.com:amr": "unauthenticated"
+        }
+      }
+    }
+  ]
+}' \
+--query "Role.Arn" \
 --output text
 )
 
 
-# add policy to role
+# add policy to role\
+
+
+echo  "atach Policy to IAM role .."
+
 
 aws iam attach-role-policy \
---role-name "${UNAUTHROLE#*/}" \
+--role-name "$UNAUTHROLENAME" \
 --policy-arn "arn:aws:iam::aws:policy/AWSIoTConfigAccess"
 
 aws iam attach-role-policy \
---role-name "${UNAUTHROLE#*/}" \
+--role-name "$UNAUTHROLENAME" \
 --policy-arn "arn:aws:iam::aws:policy/AWSIoTDataAccess"
+
+
+aws cognito-identity set-identity-pool-roles \
+  --identity-pool-id "$IDENTITYPOOLID" \
+  --roles unauthenticated="$UNAUTHROLEARN"
 
 
 SIM_CERTARN=$(\
